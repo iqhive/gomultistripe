@@ -163,6 +163,8 @@ type CallbackHandler interface {
 type Handler interface {
 	// Version returns the Stripe API version this handler implements.
 	Version() string
+	// SetSecretKey sets the Stripe secret key for this handler.
+	SetSecretKey(secretKey string)
 	// CreateCustomer creates a customer in Stripe for this version.
 	CreateCustomer(ctx context.Context, params *Customer) (*Customer, error)
 	// UpdateCustomer updates a customer in Stripe for this version.

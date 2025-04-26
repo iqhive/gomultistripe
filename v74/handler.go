@@ -16,6 +16,7 @@ import (
 
 // Handler implements the Handler interface for Stripe API v74.
 type HandlerV74 struct {
+	webhookSecret string
 }
 
 func NewHandler() *HandlerV74 { return &HandlerV74{} }
@@ -24,6 +25,10 @@ func (h *HandlerV74) Version() string { return "v74" }
 
 func (h *HandlerV74) SetSecretKey(secretKey string) {
 	stripe.Key = secretKey
+}
+
+func (h *HandlerV74) SetWebhookSecret(webhookSecret string) {
+	h.webhookSecret = webhookSecret
 }
 
 // CreateCustomer implements the Handler interface for v74.

@@ -2,8 +2,8 @@ package v74
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
-	"sync"
 	"time"
 
 	gomultistripe "github.com/iqhive/gomultistripe"
@@ -11,33 +11,18 @@ import (
 	"github.com/stripe/stripe-go/v74/webhook"
 )
 
-type CallbackHandlerV74 struct {
-	events chan gomultistripe.CallbackEvent
-	mu     sync.Once
-}
-
-func NewCallbackHandlerV74() *CallbackHandlerV74 {
-	return &CallbackHandlerV74{
-		events: make(chan gomultistripe.CallbackEvent, 100),
-	}
-}
-
-func (h *CallbackHandlerV74) Events() <-chan gomultistripe.CallbackEvent {
-	return h.events
-}
-
-func (h *CallbackHandlerV74) HandleWebhook(payload []byte, sigHeader string) error {
+func (h *HandlerV74) HandleWebhook(payload []byte, sigHeader string) (*gomultistripe.CallbackEvent, error) {
 	secret := os.Getenv("STRIPE_WEBHOOK_SECRET")
 	event, err := webhook.ConstructEvent(payload, sigHeader, secret)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	switch event.Type {
 	case string(gomultistripe.EventSetupIntentSucceeded):
 		var intent stripe.SetupIntent
 		if err := json.Unmarshal(event.Data.Raw, &intent); err != nil {
-			return err
+			return nil, err
 		}
 		pm := intent.PaymentMethod
 		var pmID, brand, last4 string
@@ -62,14 +47,14 @@ func (h *CallbackHandlerV74) HandleWebhook(payload []byte, sigHeader string) err
 		for k, v := range intent.Metadata {
 			cbEvent.Metadata[k] = v
 		}
-		h.events <- cbEvent
+		return &cbEvent, nil
 	case string(gomultistripe.EventPaymentIntentCanceled),
 		string(gomultistripe.EventPaymentIntentPaymentFailed),
 		string(gomultistripe.EventPaymentIntentSucceeded),
 		string(gomultistripe.EventPaymentIntentAmountCapturableUpdated):
 		var intent stripe.PaymentIntent
 		if err := json.Unmarshal(event.Data.Raw, &intent); err != nil {
-			return err
+			return nil, err
 		}
 		preAllocated := intent.Metadata["PreAllocated"]
 		validateOnly := intent.Metadata["ValidateOnly"]
@@ -107,7 +92,7 @@ func (h *CallbackHandlerV74) HandleWebhook(payload []byte, sigHeader string) err
 				evt.LastPaymentErrorChargeID = intent.LastPaymentError.ChargeID
 			}
 		}
-		h.events <- evt
+		return &evt, nil
 	case string(gomultistripe.EventCustomerSubscriptionCreated),
 		string(gomultistripe.EventCustomerSubscriptionUpdated),
 		string(gomultistripe.EventCustomerSubscriptionDeleted),
@@ -116,7 +101,7 @@ func (h *CallbackHandlerV74) HandleWebhook(payload []byte, sigHeader string) err
 		string(gomultistripe.EventCustomerSubscriptionResumed):
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
-			return err
+			return nil, err
 		}
 		cbEvent := gomultistripe.CallbackEvent{
 			Type:              gomultistripe.CallbackEventType(event.Type),
@@ -132,14 +117,14 @@ func (h *CallbackHandlerV74) HandleWebhook(payload []byte, sigHeader string) err
 		for k, v := range sub.Metadata {
 			cbEvent.Metadata[k] = v
 		}
-		h.events <- cbEvent
+		return &cbEvent, nil
 	case string(gomultistripe.EventInvoicePaymentSucceeded),
 		string(gomultistripe.EventInvoicePaymentFailed),
 		string(gomultistripe.EventInvoiceCreated),
 		string(gomultistripe.EventInvoiceUpcoming):
 		var inv stripe.Invoice
 		if err := json.Unmarshal(event.Data.Raw, &inv); err != nil {
-			return err
+			return nil, err
 		}
 
 		cbEvent := gomultistripe.CallbackEvent{
@@ -168,14 +153,14 @@ func (h *CallbackHandlerV74) HandleWebhook(payload []byte, sigHeader string) err
 				cbEvent.InvoiceLines = append(cbEvent.InvoiceLines, gmline)
 			}
 		}
-		h.events <- cbEvent
+		return &cbEvent, nil
 	case string(gomultistripe.EventRefundCreated),
 		string(gomultistripe.EventRefundUpdated),
 		string(gomultistripe.EventRefundFailed),
 		string(gomultistripe.EventChargeRefunded):
 		var refund stripe.Refund
 		if err := json.Unmarshal(event.Data.Raw, &refund); err != nil {
-			return err
+			return nil, err
 		}
 
 		cbEvent := gomultistripe.CallbackEvent{
@@ -194,7 +179,7 @@ func (h *CallbackHandlerV74) HandleWebhook(payload []byte, sigHeader string) err
 			cbEvent.Metadata[k] = v
 		}
 
-		h.events <- cbEvent
+		return &cbEvent, nil
 	}
-	return nil
+	return nil, fmt.Errorf("unknown event type: %s", event.Type)
 }

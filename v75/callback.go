@@ -2,8 +2,8 @@ package v75
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
-	"sync"
 	"time"
 
 	gomultistripe "github.com/iqhive/gomultistripe"
@@ -11,33 +11,18 @@ import (
 	"github.com/stripe/stripe-go/v75/webhook"
 )
 
-type CallbackHandlerV75 struct {
-	events chan gomultistripe.CallbackEvent
-	mu     sync.Once
-}
-
-func NewCallbackHandlerV75() *CallbackHandlerV75 {
-	return &CallbackHandlerV75{
-		events: make(chan gomultistripe.CallbackEvent, 100),
-	}
-}
-
-func (h *CallbackHandlerV75) Events() <-chan gomultistripe.CallbackEvent {
-	return h.events
-}
-
-func (h *CallbackHandlerV75) HandleWebhook(payload []byte, sigHeader string) error {
+func (h *HandlerV75) HandleWebhook(payload []byte, sigHeader string) (*gomultistripe.CallbackEvent, error) {
 	secret := os.Getenv("STRIPE_WEBHOOK_SECRET")
 	event, err := webhook.ConstructEvent(payload, sigHeader, secret)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	switch event.Type {
 	case stripe.EventTypeSetupIntentSucceeded:
 		var intent stripe.SetupIntent
 		if err := json.Unmarshal(event.Data.Raw, &intent); err != nil {
-			return err
+			return nil, err
 		}
 		pm := intent.PaymentMethod
 		var pmID, brand, last4 string
@@ -62,14 +47,14 @@ func (h *CallbackHandlerV75) HandleWebhook(payload []byte, sigHeader string) err
 		for k, v := range intent.Metadata {
 			cbEvent.Metadata[k] = v
 		}
-		h.events <- cbEvent
+		return &cbEvent, nil
 	case stripe.EventTypePaymentIntentCanceled,
 		stripe.EventTypePaymentIntentPaymentFailed,
 		stripe.EventTypePaymentIntentSucceeded,
 		stripe.EventTypePaymentIntentAmountCapturableUpdated:
 		var intent stripe.PaymentIntent
 		if err := json.Unmarshal(event.Data.Raw, &intent); err != nil {
-			return err
+			return nil, err
 		}
 		preAllocated := intent.Metadata["PreAllocated"]
 		validateOnly := intent.Metadata["ValidateOnly"]
@@ -107,7 +92,7 @@ func (h *CallbackHandlerV75) HandleWebhook(payload []byte, sigHeader string) err
 				evt.LastPaymentErrorChargeID = intent.LastPaymentError.ChargeID
 			}
 		}
-		h.events <- evt
+		return &evt, nil
 	case stripe.EventTypeCustomerSubscriptionCreated,
 		stripe.EventTypeCustomerSubscriptionUpdated,
 		stripe.EventTypeCustomerSubscriptionDeleted,
@@ -116,7 +101,7 @@ func (h *CallbackHandlerV75) HandleWebhook(payload []byte, sigHeader string) err
 		stripe.EventTypeCustomerSubscriptionResumed:
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
-			return err
+			return nil, err
 		}
 		cbEvent := gomultistripe.CallbackEvent{
 			Type:              gomultistripe.CallbackEventType(event.Type),
@@ -132,14 +117,14 @@ func (h *CallbackHandlerV75) HandleWebhook(payload []byte, sigHeader string) err
 		for k, v := range sub.Metadata {
 			cbEvent.Metadata[k] = v
 		}
-		h.events <- cbEvent
+		return &cbEvent, nil
 	case stripe.EventTypeInvoicePaymentSucceeded,
 		stripe.EventTypeInvoicePaymentFailed,
 		stripe.EventTypeInvoiceCreated,
 		stripe.EventTypeInvoiceUpcoming:
 		var inv stripe.Invoice
 		if err := json.Unmarshal(event.Data.Raw, &inv); err != nil {
-			return err
+			return nil, err
 		}
 
 		cbEvent := gomultistripe.CallbackEvent{
@@ -168,14 +153,14 @@ func (h *CallbackHandlerV75) HandleWebhook(payload []byte, sigHeader string) err
 				cbEvent.InvoiceLines = append(cbEvent.InvoiceLines, gmline)
 			}
 		}
-		h.events <- cbEvent
+		return &cbEvent, nil
 	case stripe.EventTypeRefundCreated,
 		stripe.EventTypeRefundUpdated,
 		stripe.EventType(gomultistripe.EventRefundFailed),
 		stripe.EventTypeChargeRefunded:
 		var refund stripe.Refund
 		if err := json.Unmarshal(event.Data.Raw, &refund); err != nil {
-			return err
+			return nil, err
 		}
 
 		cbEvent := gomultistripe.CallbackEvent{
@@ -194,7 +179,7 @@ func (h *CallbackHandlerV75) HandleWebhook(payload []byte, sigHeader string) err
 			cbEvent.Metadata[k] = v
 		}
 
-		h.events <- cbEvent
+		return &cbEvent, nil
 	}
-	return nil
+	return nil, fmt.Errorf("unknown event type: %s", event.Type)
 }

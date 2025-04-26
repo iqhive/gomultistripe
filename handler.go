@@ -151,20 +151,14 @@ type InvoiceLine struct {
 	SubscriptionID string
 }
 
-// CallbackHandler is a generic interface for handling Stripe webhook events.
-type CallbackHandler interface {
-	// Events returns a channel that receives CallbackEvent objects.
-	Events() <-chan CallbackEvent
-	// HandleWebhook processes a Stripe webhook payload and sends events to the channel.
-	HandleWebhook(payload []byte, sigHeader string) error
-}
-
 // Handler abstracts Stripe API interactions and versioning.
 type Handler interface {
 	// Version returns the Stripe API version this handler implements.
 	Version() string
 	// SetSecretKey sets the Stripe secret key for this handler.
 	SetSecretKey(secretKey string)
+	// SetWebhookSecret sets the Stripe webhook secret for this handler.
+	SetWebhookSecret(webhookSecret string)
 	// CreateCustomer creates a customer in Stripe for this version.
 	CreateCustomer(ctx context.Context, params *Customer) (*Customer, error)
 	// UpdateCustomer updates a customer in Stripe for this version.
@@ -188,6 +182,9 @@ type Handler interface {
 	// CancelSubscription cancels a subscription immediately or at period end.
 	CancelSubscription(ctx context.Context, subscriptionID string, atPeriodEnd bool) (*Subscription, error)
 	// Example: CreateCustomer, Charge, etc. Add more as needed.
+
+	// HandleWebhook processes a Stripe webhook payload and sends events to the channel.
+	HandleWebhook(payload []byte, sigHeader string) (*CallbackEvent, error)
 }
 
 // registry holds all registered Stripe handlers by version.

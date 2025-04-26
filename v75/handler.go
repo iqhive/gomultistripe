@@ -16,6 +16,7 @@ import (
 
 // Handler implements the Handler interface for Stripe API v75.
 type HandlerV75 struct {
+	webhookSecret string
 }
 
 func NewHandler() *HandlerV75 { return &HandlerV75{} }
@@ -24,6 +25,10 @@ func (h *HandlerV75) Version() string { return "v75" }
 
 func (h *HandlerV75) SetSecretKey(secretKey string) {
 	stripe.Key = secretKey
+}
+
+func (h *HandlerV75) SetWebhookSecret(webhookSecret string) {
+	h.webhookSecret = webhookSecret
 }
 
 func (h *HandlerV75) CreateCustomer(ctx context.Context, params *gomultistripe.Customer) (*gomultistripe.Customer, error) {

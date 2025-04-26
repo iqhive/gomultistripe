@@ -103,7 +103,8 @@ func (h *Handler) GetPaymentMethods(ctx context.Context, customerID string) ([]*
 	for iter.Next() {
 		pm := iter.PaymentMethod()
 		methods = append(methods, &gomultistripe.PaymentMethod{
-			ID: pm.ID,
+			ID:         pm.ID,
+			CustomerID: pm.Customer.ID,
 			Metadata: func() map[string]string {
 				if pm.Metadata != nil {
 					return pm.Metadata
@@ -134,7 +135,8 @@ func (h *Handler) AttachPaymentMethod(ctx context.Context, customerID string, pa
 		return nil, err
 	}
 	return &gomultistripe.PaymentMethod{
-		ID: pm.ID,
+		ID:         pm.ID,
+		CustomerID: pm.Customer.ID,
 		Metadata: func() map[string]string {
 			if pm.Metadata != nil {
 				return pm.Metadata

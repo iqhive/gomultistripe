@@ -23,15 +23,16 @@ type Customer struct {
 
 // PaymentMethod represents a Stripe payment method in a version-agnostic way.
 type PaymentMethod struct {
-	ID        string
-	Type      string
-	Last4     string
-	Brand     string
-	ExpMonth  uint
-	ExpYear   uint
-	IsDefault bool
-	Metadata  map[string]string
-	CreatedAt time.Time
+	ID         string
+	CustomerID string
+	Type       string
+	Last4      string
+	Brand      string
+	ExpMonth   uint
+	ExpYear    uint
+	IsDefault  bool
+	Metadata   map[string]string
+	CreatedAt  time.Time
 }
 
 // PaymentIntent represents a Stripe payment intent in a version-agnostic way.

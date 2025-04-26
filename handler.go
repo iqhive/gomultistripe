@@ -17,6 +17,7 @@ type Customer struct {
 	Email     string
 	Phone     string
 	Postcode  string
+	Metadata  map[string]string
 	CreatedAt time.Time
 }
 
@@ -29,6 +30,7 @@ type PaymentMethod struct {
 	ExpMonth  uint
 	ExpYear   uint
 	IsDefault bool
+	Metadata  map[string]string
 	CreatedAt time.Time
 }
 
@@ -41,6 +43,7 @@ type PaymentIntent struct {
 	ClientSecret  string
 	CustomerID    string
 	PaymentMethod string
+	Metadata      map[string]string
 	CreatedAt     time.Time
 }
 
@@ -53,6 +56,7 @@ type Subscription struct {
 	CurrentPeriodEnd  int64
 	CancelAtPeriodEnd bool
 	CanceledAt        int64
+	Metadata          map[string]string
 	CreatedAt         time.Time
 }
 

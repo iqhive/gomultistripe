@@ -36,6 +36,13 @@ func (h *HandlerV82) CreateCustomer(ctx context.Context, params *gomultistripe.C
 		Name:  cust.Name,
 		Email: cust.Email,
 		Phone: cust.Phone,
+		Metadata: func() map[string]string {
+			if cust.Metadata != nil {
+				return cust.Metadata
+			} else {
+				return make(map[string]string)
+			}
+		}(),
 		Postcode: func() string {
 			if cust.Address != nil {
 				return cust.Address.PostalCode
@@ -65,6 +72,13 @@ func (h *HandlerV82) UpdateCustomer(ctx context.Context, customerID string, para
 		Name:  cust.Name,
 		Email: cust.Email,
 		Phone: cust.Phone,
+		Metadata: func() map[string]string {
+			if cust.Metadata != nil {
+				return cust.Metadata
+			} else {
+				return make(map[string]string)
+			}
+		}(),
 		Postcode: func() string {
 			if cust.Address != nil {
 				return cust.Address.PostalCode
@@ -86,7 +100,14 @@ func (h *HandlerV82) GetPaymentMethods(ctx context.Context, customerID string) (
 	for iter.Next() {
 		pm := iter.PaymentMethod()
 		methods = append(methods, &gomultistripe.PaymentMethod{
-			ID:        pm.ID,
+			ID: pm.ID,
+			Metadata: func() map[string]string {
+				if pm.Metadata != nil {
+					return pm.Metadata
+				} else {
+					return make(map[string]string)
+				}
+			}(),
 			Type:      string(pm.Type),
 			Last4:     pm.Card.Last4,
 			Brand:     string(pm.Card.Brand),
@@ -110,7 +131,14 @@ func (h *HandlerV82) AttachPaymentMethod(ctx context.Context, customerID string,
 		return nil, err
 	}
 	return &gomultistripe.PaymentMethod{
-		ID:        pm.ID,
+		ID: pm.ID,
+		Metadata: func() map[string]string {
+			if pm.Metadata != nil {
+				return pm.Metadata
+			} else {
+				return make(map[string]string)
+			}
+		}(),
 		Type:      string(pm.Type),
 		Last4:     pm.Card.Last4,
 		Brand:     string(pm.Card.Brand),
@@ -144,6 +172,13 @@ func (h *HandlerV82) CreatePaymentIntent(ctx context.Context, params *gomultistr
 		ClientSecret: pi.ClientSecret,
 		CustomerID:   pi.Customer.ID,
 		CreatedAt:    time.Unix(pi.Created, 0),
+		Metadata: func() map[string]string {
+			if pi.Metadata != nil {
+				return pi.Metadata
+			} else {
+				return make(map[string]string)
+			}
+		}(),
 		PaymentMethod: func() string {
 			if pi.PaymentMethod != nil {
 				return pi.PaymentMethod.ID
@@ -166,6 +201,14 @@ func (h *HandlerV82) RetrievePaymentIntent(ctx context.Context, paymentIntentID 
 		Status:       string(pi.Status),
 		ClientSecret: pi.ClientSecret,
 		CustomerID:   pi.Customer.ID,
+		CreatedAt:    time.Unix(pi.Created, 0),
+		Metadata: func() map[string]string {
+			if pi.Metadata != nil {
+				return pi.Metadata
+			} else {
+				return make(map[string]string)
+			}
+		}(),
 		PaymentMethod: func() string {
 			if pi.PaymentMethod != nil {
 				return pi.PaymentMethod.ID
@@ -201,6 +244,13 @@ func (h *HandlerV82) CreateSubscription(ctx context.Context, customerID string, 
 		CancelAtPeriodEnd: s.CancelAtPeriodEnd,
 		CanceledAt:        s.CanceledAt,
 		CreatedAt:         time.Unix(s.Created, 0),
+		Metadata: func() map[string]string {
+			if s.Metadata != nil {
+				return s.Metadata
+			} else {
+				return make(map[string]string)
+			}
+		}(),
 	}, nil
 }
 
@@ -224,6 +274,13 @@ func (h *HandlerV82) ListSubscriptions(ctx context.Context, customerID string) (
 			CancelAtPeriodEnd: s.CancelAtPeriodEnd,
 			CanceledAt:        s.CanceledAt,
 			CreatedAt:         time.Unix(s.Created, 0),
+			Metadata: func() map[string]string {
+				if s.Metadata != nil {
+					return s.Metadata
+				} else {
+					return make(map[string]string)
+				}
+			}(),
 		})
 	}
 	if err := iter.Err(); err != nil {
@@ -259,6 +316,13 @@ func (h *HandlerV82) UpdateSubscription(ctx context.Context, subscriptionID stri
 		CancelAtPeriodEnd: s.CancelAtPeriodEnd,
 		CanceledAt:        s.CanceledAt,
 		CreatedAt:         time.Unix(s.Created, 0),
+		Metadata: func() map[string]string {
+			if s.Metadata != nil {
+				return s.Metadata
+			} else {
+				return make(map[string]string)
+			}
+		}(),
 	}, nil
 }
 
@@ -285,6 +349,13 @@ func (h *HandlerV82) CancelSubscription(ctx context.Context, subscriptionID stri
 		CancelAtPeriodEnd: s.CancelAtPeriodEnd,
 		CanceledAt:        s.CanceledAt,
 		CreatedAt:         time.Unix(s.Created, 0),
+		Metadata: func() map[string]string {
+			if s.Metadata != nil {
+				return s.Metadata
+			} else {
+				return make(map[string]string)
+			}
+		}(),
 	}, nil
 }
 

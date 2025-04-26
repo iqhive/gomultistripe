@@ -40,6 +40,18 @@ type PaymentIntent struct {
 	PaymentMethod string
 }
 
+// Subscription represents a Stripe subscription in a version-agnostic way.
+type Subscription struct {
+	ID                string
+	CustomerID        string
+	Status            string
+	PriceID           string
+	CurrentPeriodEnd  int64
+	CancelAtPeriodEnd bool
+	CanceledAt        int64
+	Created           int64
+}
+
 // Handler abstracts Stripe API interactions and versioning.
 type Handler interface {
 	// Version returns the Stripe API version this handler implements.
@@ -58,6 +70,14 @@ type Handler interface {
 	CreatePaymentIntent(ctx context.Context, params *PaymentIntent) (*PaymentIntent, error)
 	// RetrievePaymentIntent retrieves a PaymentIntent by ID.
 	RetrievePaymentIntent(ctx context.Context, paymentIntentID string) (*PaymentIntent, error)
+	// CreateSubscription creates a subscription for a customer.
+	CreateSubscription(ctx context.Context, customerID string, priceID string) (*Subscription, error)
+	// ListSubscriptions lists subscriptions for a customer.
+	ListSubscriptions(ctx context.Context, customerID string) ([]*Subscription, error)
+	// UpdateSubscription updates a subscription (e.g., change price, cancel at period end).
+	UpdateSubscription(ctx context.Context, subscriptionID string, cancelAtPeriodEnd bool, newPriceID string) (*Subscription, error)
+	// CancelSubscription cancels a subscription immediately or at period end.
+	CancelSubscription(ctx context.Context, subscriptionID string, atPeriodEnd bool) (*Subscription, error)
 	// Example: CreateCustomer, Charge, etc. Add more as needed.
 }
 

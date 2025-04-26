@@ -39,6 +39,97 @@ Each version has its own handler implementation and can be selected at runtime.
 
 All handlers must implement the following interface:
 
+## Using Subscriptions
+
+This package provides a version-agnostic way to manage Stripe subscriptions via the `Handler` interface. The following methods are available for subscription management:
+
+- `CreateSubscription(ctx, customerID, priceID)`
+- `ListSubscriptions(ctx, customerID)`
+- `UpdateSubscription(ctx, subscriptionID, cancelAtPeriodEnd, newPriceID)`
+- `CancelSubscription(ctx, subscriptionID, atPeriodEnd)`
+
+### Subscription Model
+
+The `Subscription` struct is defined as:
+
+```go
+// Subscription represents a Stripe subscription in a version-agnostic way.
+type Subscription struct {
+    ID                string
+    CustomerID        string
+    Status            string
+    PriceID           string
+    CurrentPeriodEnd  int64
+    CancelAtPeriodEnd bool
+    CanceledAt        int64
+    Created           int64
+}
+```
+
+### Creating a Subscription
+
+To create a subscription for a customer to a specific price:
+
+```go
+sub, err := handler.CreateSubscription(ctx, customerID, priceID)
+if err != nil {
+    // handle error
+}
+fmt.Printf("Created subscription: %+v\n", sub)
+```
+
+- `customerID`: The ID of the Stripe customer.
+- `priceID`: The ID of the Stripe price (recurring product/plan).
+
+### Listing Subscriptions
+
+To list all subscriptions for a customer:
+
+```go
+subs, err := handler.ListSubscriptions(ctx, customerID)
+if err != nil {
+    // handle error
+}
+for _, sub := range subs {
+    fmt.Printf("Subscription: %+v\n", sub)
+}
+```
+
+### Updating a Subscription
+
+You can update a subscription to change its price or set it to cancel at the end of the current period:
+
+```go
+updatedSub, err := handler.UpdateSubscription(ctx, subscriptionID, cancelAtPeriodEnd, newPriceID)
+if err != nil {
+    // handle error
+}
+fmt.Printf("Updated subscription: %+v\n", updatedSub)
+```
+- `subscriptionID`: The ID of the subscription to update.
+- `cancelAtPeriodEnd`: If true, the subscription will be canceled at the end of the current period.
+- `newPriceID`: (Optional) The new price ID to switch the subscription to. Pass an empty string to leave unchanged.
+
+### Canceling a Subscription
+
+To cancel a subscription immediately or at the end of the period:
+
+```go
+canceledSub, err := handler.CancelSubscription(ctx, subscriptionID, atPeriodEnd)
+if err != nil {
+    // handle error
+}
+fmt.Printf("Canceled subscription: %+v\n", canceledSub)
+```
+- `subscriptionID`: The ID of the subscription to cancel.
+- `atPeriodEnd`: If true, the subscription will be canceled at the end of the current period; if false, it will be canceled immediately.
+
+### Notes
+- All methods require a valid `context.Context` as the first argument.
+- The handler instance should be selected for the desired Stripe API version.
+- Returned `Subscription` objects contain key information such as status, price, and period end timestamps.
+- Error handling is essential for production use.
+
 ## Adding a New Stripe API Version
 
 To add support for a new Stripe API version (e.g., v83):

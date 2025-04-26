@@ -10,6 +10,7 @@ import (
 	"github.com/stripe/stripe-go/v75/customer"
 	"github.com/stripe/stripe-go/v75/paymentintent"
 	"github.com/stripe/stripe-go/v75/paymentmethod"
+	"github.com/stripe/stripe-go/v75/subscription"
 )
 
 // Handler implements the Handler interface for Stripe API v75.
@@ -158,6 +159,118 @@ func (h *Handler) RetrievePaymentIntent(ctx context.Context, paymentIntentID str
 				return ""
 			}
 		}(),
+	}, nil
+}
+
+func (h *Handler) CreateSubscription(ctx context.Context, customerID string, priceID string) (*gomultistripe.Subscription, error) {
+	params := &stripe.SubscriptionParams{
+		Customer: stripe.String(customerID),
+		Items: []*stripe.SubscriptionItemsParams{
+			{Price: stripe.String(priceID)},
+		},
+	}
+	s, err := subscription.New(params)
+	if err != nil {
+		return nil, err
+	}
+	return &gomultistripe.Subscription{
+		ID:         s.ID,
+		CustomerID: s.Customer.ID,
+		Status:     string(s.Status),
+		PriceID: func() string {
+			if len(s.Items.Data) > 0 && s.Items.Data[0].Price != nil {
+				return s.Items.Data[0].Price.ID
+			}
+			return ""
+		}(),
+		CurrentPeriodEnd:  s.CancelAt,
+		CancelAtPeriodEnd: s.CancelAtPeriodEnd,
+		CanceledAt:        s.CanceledAt,
+		Created:           s.Created,
+	}, nil
+}
+
+func (h *Handler) ListSubscriptions(ctx context.Context, customerID string) ([]*gomultistripe.Subscription, error) {
+	params := &stripe.SubscriptionListParams{Customer: stripe.String(customerID)}
+	iter := subscription.List(params)
+	var subs []*gomultistripe.Subscription
+	for iter.Next() {
+		s := iter.Subscription()
+		subs = append(subs, &gomultistripe.Subscription{
+			ID:         s.ID,
+			CustomerID: s.Customer.ID,
+			Status:     string(s.Status),
+			PriceID: func() string {
+				if len(s.Items.Data) > 0 && s.Items.Data[0].Price != nil {
+					return s.Items.Data[0].Price.ID
+				}
+				return ""
+			}(),
+			CurrentPeriodEnd:  s.CancelAt,
+			CancelAtPeriodEnd: s.CancelAtPeriodEnd,
+			CanceledAt:        s.CanceledAt,
+			Created:           s.Created,
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	return subs, nil
+}
+
+func (h *Handler) UpdateSubscription(ctx context.Context, subscriptionID string, cancelAtPeriodEnd bool, newPriceID string) (*gomultistripe.Subscription, error) {
+	params := &stripe.SubscriptionParams{
+		CancelAtPeriodEnd: stripe.Bool(cancelAtPeriodEnd),
+	}
+	if newPriceID != "" {
+		params.Items = []*stripe.SubscriptionItemsParams{{
+			Price: stripe.String(newPriceID),
+		}}
+	}
+	s, err := subscription.Update(subscriptionID, params)
+	if err != nil {
+		return nil, err
+	}
+	return &gomultistripe.Subscription{
+		ID:         s.ID,
+		CustomerID: s.Customer.ID,
+		Status:     string(s.Status),
+		PriceID: func() string {
+			if len(s.Items.Data) > 0 && s.Items.Data[0].Price != nil {
+				return s.Items.Data[0].Price.ID
+			}
+			return ""
+		}(),
+		CurrentPeriodEnd:  s.CancelAt,
+		CancelAtPeriodEnd: s.CancelAtPeriodEnd,
+		CanceledAt:        s.CanceledAt,
+		Created:           s.Created,
+	}, nil
+}
+
+func (h *Handler) CancelSubscription(ctx context.Context, subscriptionID string, atPeriodEnd bool) (*gomultistripe.Subscription, error) {
+	params := &stripe.SubscriptionCancelParams{
+		InvoiceNow: stripe.Bool(!atPeriodEnd),
+		Prorate:    stripe.Bool(!atPeriodEnd),
+	}
+	s, err := subscription.Cancel(subscriptionID, params)
+	if err != nil {
+		return nil, err
+	}
+	return &gomultistripe.Subscription{
+		ID:         s.ID,
+		CustomerID: s.Customer.ID,
+		Status:     string(s.Status),
+		PriceID: func() string {
+			if len(s.Items.Data) > 0 && s.Items.Data[0].Price != nil {
+				return s.Items.Data[0].Price.ID
+			}
+			return ""
+		}(),
+		CurrentPeriodEnd:  s.CancelAt,
+		CancelAtPeriodEnd: s.CancelAtPeriodEnd,
+		CanceledAt:        s.CanceledAt,
+		Created:           s.Created,
 	}, nil
 }
 

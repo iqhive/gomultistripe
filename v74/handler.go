@@ -287,3 +287,7 @@ func (h *Handler) CancelSubscription(ctx context.Context, subscriptionID string,
 
 // ErrInvalidParams is returned when params are not of the expected type.
 var ErrInvalidParams = errors.New("invalid params type for this handler version")
+
+func init() {
+	gomultistripe.RegisterHandler(NewHandler())
+}

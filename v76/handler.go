@@ -275,3 +275,7 @@ func (h *Handler) CancelSubscription(ctx context.Context, subscriptionID string,
 }
 
 var ErrInvalidParams = errors.New("invalid params type for this handler version")
+
+func init() {
+	gomultistripe.RegisterHandler(&Handler{})
+}

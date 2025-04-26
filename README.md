@@ -130,6 +130,133 @@ fmt.Printf("Canceled subscription: %+v\n", canceledSub)
 - Returned `Subscription` objects contain key information such as status, price, and period end timestamps.
 - Error handling is essential for production use.
 
+## Using Callback (Webhook) Handlers
+
+This package provides a version-agnostic way to handle Stripe webhook events via the `CallbackHandler` interface. Each versioned handler implements its own callback handler, which parses Stripe webhook payloads and sends normalized events to a Go channel for processing.
+
+### Supported Events
+
+The following Stripe event types are supported:
+
+| Event Type                              | Object           | Description                                 | Use Case |
+|-----------------------------------------|------------------|---------------------------------------------|----------|
+| setup_intent.succeeded                  | SetupIntent      | Triggered when a SetupIntent has successfully completed, and the payment method is ready to use for future payments. | Store/confirm payment method for future use |
+| payment_intent.canceled                 | PaymentIntent    | Sent when a PaymentIntent is canceled, indicating that the intended payment will not take place. | Update payment status as canceled |
+| payment_intent.payment_failed           | PaymentIntent    | Occurs when a PaymentIntent fails, usually due to authentication or payment method issues. | Error handling, dunning, customer notification |
+| payment_intent.succeeded                | PaymentIntent    | Fired when a PaymentIntent has been confirmed and the payment is successfully completed. | Confirm successful payment |
+| payment_intent.amount_capturable_updated| PaymentIntent    | Triggered when the amount of a PaymentIntent changes, and it is now ready to be captured (useful for manual capture workflows). | Mark payment as ready for capture |
+| customer.subscription.created           | Subscription     | Triggered when a new subscription is created for a customer. | Track new signups |
+| customer.subscription.updated           | Subscription     | Sent when the subscription changes (like plan upgrades, downgrades, or changes in quantity or billing cycle). | Track plan changes, upgrades, downgrades |
+| customer.subscription.deleted           | Subscription     | Occurs when a subscription is canceled or deleted. | Track cancellations or removals |
+| customer.subscription.trial_will_end    | Subscription     | Sent a few days before the trial period of a subscription ends. | Remind users about trial ending |
+| customer.subscription.paused            | Subscription     | Triggered when a subscription is paused. | Restrict access temporarily |
+| customer.subscription.resumed           | Subscription     | Sent when a previously paused subscription is resumed. | Restore access |
+| invoice.payment_succeeded               | Invoice          | Fired when a billing invoice for a subscription is successfully paid. | Confirm successful recurring charge |
+| invoice.payment_failed                  | Invoice          | Occurs when an invoice payment attempt fails. | Dunning, alerting customers |
+| invoice.created                         | Invoice          | Sent when a new invoice (recurring billing) is created. | Record keeping, notification |
+| invoice.upcoming                        | Invoice          | Triggered a short time before an invoice for a subscription is finalized. | Notify user of upcoming charge |
+
+### CallbackEvent Fields
+
+The `CallbackEvent` struct contains all the fields you need for billing and account logic. The fields populated depend on the event type. See the table below for the minimum fields per event:
+
+- **Metadata**: All Stripe metadata fields are now available in the `Metadata` map (e.g., `evt.Metadata["SPID"]`, `evt.Metadata["AccountType"]`, etc.).
+- **InvoiceLines**: For invoice events, the `InvoiceLines` field contains detailed information about each line item on the invoice.
+
+#### InvoiceLine Structure
+
+```go
+// InvoiceLine represents a single line item on a Stripe invoice.
+type InvoiceLine struct {
+    ID             string
+    Amount         int64
+    Currency       string
+    Description    string
+    SubscriptionID string
+}
+```
+
+#### Example: Accessing Metadata and Invoice Lines
+
+```go
+// Accessing metadata fields
+spid := evt.Metadata["SPID"]
+accountType := evt.Metadata["AccountType"]
+externalID := evt.Metadata["AccountExternalID"]
+
+// Accessing invoice lines
+for _, line := range evt.InvoiceLines {
+    fmt.Printf("Line: %s, Amount: %d, Description: %s\n", line.ID, line.Amount, line.Description)
+}
+```
+
+| Event Type                              | Required Metadata Fields (in evt.Metadata) | Other Key Fields in CallbackEvent (if present) |
+|-----------------------------------------|--------------------------------------------|-------------------------------------------------|
+| setup_intent.succeeded                  | SPID, AccountType, AccountExternalID       | SetupIntentID, PaymentMethodID, CardBrand, CardExpMonth, CardExpYear, CardLast4 |
+| payment_intent.canceled                 | SPID, AccountType, AccountExternalID       | PaymentIntentID, Amount, PaymentMethodID, PreAllocated |
+| payment_intent.payment_failed           | SPID, AccountType, AccountExternalID       | PaymentIntentID, Amount, PaymentMethodID, PreAllocated, LastPaymentErrorCode, LastPaymentErrorMsg, LastPaymentErrorDeclineCode, LastPaymentErrorPaymentMethodID, LastPaymentErrorChargeID, Status, ValidateOnly |
+| payment_intent.succeeded                | SPID, AccountType, AccountExternalID       | PaymentIntentID, Amount, PaymentMethodID, PreAllocated, Status, ValidateOnly |
+| payment_intent.amount_capturable_updated| SPID, AccountType, AccountExternalID       | PaymentIntentID, Amount, AmountCapturable, Status, ValidateOnly |
+| customer.subscription.created           | SPID, AccountType, AccountExternalID       | SubscriptionID, CustomerID, Status, CurrentPeriodEnd, CancelAtPeriodEnd, CanceledAt, Created |
+| customer.subscription.updated           | SPID, AccountType, AccountExternalID       | SubscriptionID, CustomerID, Status, CurrentPeriodEnd, CancelAtPeriodEnd, CanceledAt, Created |
+| customer.subscription.deleted           | SPID, AccountType, AccountExternalID       | SubscriptionID, CustomerID, Status, CurrentPeriodEnd, CancelAtPeriodEnd, CanceledAt, Created |
+| customer.subscription.trial_will_end    | SPID, AccountType, AccountExternalID       | SubscriptionID, CustomerID, Status, CurrentPeriodEnd, CancelAtPeriodEnd, CanceledAt, Created |
+| customer.subscription.paused            | SPID, AccountType, AccountExternalID       | SubscriptionID, CustomerID, Status, CurrentPeriodEnd, CancelAtPeriodEnd, CanceledAt, Created |
+| customer.subscription.resumed           | SPID, AccountType, AccountExternalID       | SubscriptionID, CustomerID, Status, CurrentPeriodEnd, CancelAtPeriodEnd, CanceledAt, Created |
+| invoice.payment_succeeded               | SPID, AccountType, AccountExternalID       | InvoiceID, CustomerID, SubscriptionID, Amount, Status, Created, InvoiceLines |
+| invoice.payment_failed                  | SPID, AccountType, AccountExternalID       | InvoiceID, CustomerID, SubscriptionID, Amount, Status, Created, InvoiceLines |
+| invoice.created                         | SPID, AccountType, AccountExternalID       | InvoiceID, CustomerID, SubscriptionID, Amount, Status, Created, InvoiceLines |
+| invoice.upcoming                        | SPID, AccountType, AccountExternalID       | InvoiceID, CustomerID, SubscriptionID, Amount, Status, Created, InvoiceLines |
+
+### Example: Instantiating and Using a Callback Handler
+
+```go
+// For v82 (similar for other versions):
+import (
+    v82 "github.com/iqhive/gomultistripe/v82"
+    "os"
+)
+
+func main() {
+    // Set your Stripe webhook secret in the environment
+    os.Setenv("STRIPE_WEBHOOK_SECRET", "whsec_...")
+    handler := v82.NewCallbackHandlerV82()
+
+    // In your HTTP handler for Stripe webhooks:
+    func(w http.ResponseWriter, r *http.Request) {
+        payload, _ := io.ReadAll(r.Body)
+        sigHeader := r.Header.Get("Stripe-Signature")
+        err := handler.HandleWebhook(payload, sigHeader)
+        if err != nil {
+            w.WriteHeader(400)
+            return
+        }
+        w.WriteHeader(200)
+    }
+
+    // In a goroutine, process events:
+    go func() {
+        for evt := range handler.Events() {
+            switch evt.Type {
+            case "setup_intent.succeeded":
+                // Use evt.SPID, evt.AccountType, evt.AccountExternalID, etc.
+            case "payment_intent.succeeded":
+                // Use evt.PaymentIntentID, evt.Amount, evt.Status, etc.
+            // ... handle other event types ...
+            }
+        }
+    }()
+}
+```
+
+### Notes
+- Each versioned handler (e.g., v82, v81, v80, etc.) provides its own `NewCallbackHandlerVXX()` constructor.
+- The handler verifies the Stripe webhook signature using the `STRIPE_WEBHOOK_SECRET` environment variable.
+- Only events with all required metadata fields are sent to the channel; others are ignored.
+- The channel is buffered (size 100) to avoid blocking the webhook handler.
+- You are responsible for draining the channel and processing events in your application logic.
+- The event struct is version-agnostic and safe to use across all supported versions.
+
 ## Adding a New Stripe API Version
 
 To add support for a new Stripe API version (e.g., v83):
@@ -142,49 +269,4 @@ To add support for a new Stripe API version (e.g., v83):
    - Add the new Stripe SDK version to your `go.mod` using `go get github.com/stripe/stripe-go/v83`.
 
 3. **Rename the Handler Type:**
-   - Update the handler struct and registration to match the new version (e.g., `HandlerV83`).
-
-4. **Update the Version Method:**
-   - Ensure `Version()` returns the correct version string (e.g., `"v83"`).
-
-5. **Review API Changes:**
-   - Check the [Stripe API changelog](https://stripe.com/docs/upgrades#api-changelog) and the Go SDK release notes for breaking changes or new features.
-   - Update method implementations as needed to accommodate API changes.
-
-6. **Register the Handler:**
-   - Ensure the handler is registered in its `init()` function:
-     ```go
-     func init() {
-         gomultistripe.RegisterHandler(&HandlerV83{})
-     }
-     ```
-
-7. **Test the Handler:**
-   - Add or update tests in `handler_test.go` to cover the new version.
-
-8. **Update the README:**
-   - Add the new version to the supported versions list above.
-
-## Conventions and Best Practices
-
-- **Documentation:** Update this README and add comments to new handlers to explain any version-specific logic. Always update the supported versions list when adding a new version.
-
-## Example: Creating a New Handler
-
-Suppose Stripe releases API version v83. To add support:
-
-1. Copy `handler_v82.go` to `handler_v83.go`.
-2. Update all imports from `v82` to `v83`.
-3. Rename the handler struct to `HandlerV83` and update the `Version()` method.
-4. Update the `init()` function to register `HandlerV83`.
-5. Run `go get github.com/stripe/stripe-go/v83` to add the new SDK version to your dependencies.
-6. Review the Stripe API changelog and Go SDK docs for any changes.
-7. Update the implementation as needed.
-8. Test thoroughly.
-9. Update the README.
-
-## Troubleshooting
-
-- **Missing Stripe SDK Version:** If you see errors like `no required module provides package github.com/stripe/stripe-go/vXX`, run `go get github.com/stripe/stripe-go/vXX` to add the required version to your `go.mod`.
-- **Package Name Mismatch in Tests:** Ensure the package name in your test files matches the implementation file (e.g., `package v74`).
-- **Handler Not Registered:** Make sure your handler is registered in an `init()` function.
+   - Update the handler struct and registration to match the new version (e.g., `HandlerV83`

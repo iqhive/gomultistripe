@@ -52,6 +52,90 @@ type Subscription struct {
 	Created           int64
 }
 
+// CallbackEventType represents the type of Stripe event received.
+type CallbackEventType string
+
+const (
+	EventSetupIntentSucceeded                 CallbackEventType = "setup_intent.succeeded"
+	EventPaymentIntentCanceled                CallbackEventType = "payment_intent.canceled"
+	EventPaymentIntentPaymentFailed           CallbackEventType = "payment_intent.payment_failed"
+	EventPaymentIntentSucceeded               CallbackEventType = "payment_intent.succeeded"
+	EventPaymentIntentAmountCapturableUpdated CallbackEventType = "payment_intent.amount_capturable_updated"
+
+	// Subscription events
+	EventCustomerSubscriptionCreated      CallbackEventType = "customer.subscription.created"
+	EventCustomerSubscriptionUpdated      CallbackEventType = "customer.subscription.updated"
+	EventCustomerSubscriptionDeleted      CallbackEventType = "customer.subscription.deleted"
+	EventCustomerSubscriptionTrialWillEnd CallbackEventType = "customer.subscription.trial_will_end"
+	EventCustomerSubscriptionPaused       CallbackEventType = "customer.subscription.paused"
+	EventCustomerSubscriptionResumed      CallbackEventType = "customer.subscription.resumed"
+
+	// Invoice events
+	EventInvoicePaymentSucceeded CallbackEventType = "invoice.payment_succeeded"
+	EventInvoicePaymentFailed    CallbackEventType = "invoice.payment_failed"
+	EventInvoiceCreated          CallbackEventType = "invoice.created"
+	EventInvoiceUpcoming         CallbackEventType = "invoice.upcoming"
+)
+
+// CallbackEvent is a version-agnostic representation of a Stripe webhook event.
+type CallbackEvent struct {
+	Type CallbackEventType
+
+	// Common metadata fields
+	Metadata     map[string]string
+	PreAllocated string
+	ValidateOnly string
+
+	// SetupIntent fields
+	SetupIntentID   string
+	PaymentMethodID string
+	CardBrand       string
+	CardExpMonth    uint
+	CardExpYear     uint
+	CardLast4       string
+
+	// PaymentIntent fields
+	PaymentIntentID  string
+	Amount           int64
+	AmountCapturable int64
+	Status           string
+
+	// Payment error fields
+	LastPaymentErrorCode            string
+	LastPaymentErrorMsg             string
+	LastPaymentErrorDeclineCode     string
+	LastPaymentErrorPaymentMethodID string
+	LastPaymentErrorChargeID        string
+
+	// Subscription fields
+	SubscriptionID    string
+	CustomerID        string
+	CurrentPeriodEnd  int64
+	CancelAtPeriodEnd bool
+	CanceledAt        int64
+	Created           int64
+
+	// Invoice fields
+	InvoiceID    string
+	InvoiceLines []InvoiceLine
+}
+
+type InvoiceLine struct {
+	ID             string
+	Amount         int64
+	Currency       string
+	Description    string
+	SubscriptionID string
+}
+
+// CallbackHandler is a generic interface for handling Stripe webhook events.
+type CallbackHandler interface {
+	// Events returns a channel that receives CallbackEvent objects.
+	Events() <-chan CallbackEvent
+	// HandleWebhook processes a Stripe webhook payload and sends events to the channel.
+	HandleWebhook(payload []byte, sigHeader string) error
+}
+
 // Handler abstracts Stripe API interactions and versioning.
 type Handler interface {
 	// Version returns the Stripe API version this handler implements.

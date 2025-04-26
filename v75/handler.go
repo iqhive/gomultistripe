@@ -15,13 +15,18 @@ import (
 )
 
 // Handler implements the Handler interface for Stripe API v75.
-type Handler struct{}
+type HandlerV75 struct {
+}
 
-func NewHandler() *Handler { return &Handler{} }
+func NewHandler() *HandlerV75 { return &HandlerV75{} }
 
-func (h *Handler) Version() string { return "v75" }
+func (h *HandlerV75) Version() string { return "v75" }
 
-func (h *Handler) CreateCustomer(ctx context.Context, params *gomultistripe.Customer) (*gomultistripe.Customer, error) {
+func (h *HandlerV75) SetSecretKey(secretKey string) {
+	stripe.Key = secretKey
+}
+
+func (h *HandlerV75) CreateCustomer(ctx context.Context, params *gomultistripe.Customer) (*gomultistripe.Customer, error) {
 	stripeParams := &stripe.CustomerParams{
 		Name:  stripe.String(params.Name),
 		Email: stripe.String(params.Email),
@@ -57,7 +62,7 @@ func (h *Handler) CreateCustomer(ctx context.Context, params *gomultistripe.Cust
 	}, nil
 }
 
-func (h *Handler) UpdateCustomer(ctx context.Context, customerID string, params *gomultistripe.Customer) (*gomultistripe.Customer, error) {
+func (h *HandlerV75) UpdateCustomer(ctx context.Context, customerID string, params *gomultistripe.Customer) (*gomultistripe.Customer, error) {
 	stripeParams := &stripe.CustomerParams{
 		Name:  stripe.String(params.Name),
 		Email: stripe.String(params.Email),
@@ -93,7 +98,7 @@ func (h *Handler) UpdateCustomer(ctx context.Context, customerID string, params 
 	}, nil
 }
 
-func (h *Handler) GetPaymentMethods(ctx context.Context, customerID string) ([]*gomultistripe.PaymentMethod, error) {
+func (h *HandlerV75) GetPaymentMethods(ctx context.Context, customerID string) ([]*gomultistripe.PaymentMethod, error) {
 	params := &stripe.PaymentMethodListParams{
 		Customer: stripe.String(customerID),
 		Type:     stripe.String("card"),
@@ -126,7 +131,7 @@ func (h *Handler) GetPaymentMethods(ctx context.Context, customerID string) ([]*
 	return methods, nil
 }
 
-func (h *Handler) AttachPaymentMethod(ctx context.Context, customerID string, paymentMethodID string) (*gomultistripe.PaymentMethod, error) {
+func (h *HandlerV75) AttachPaymentMethod(ctx context.Context, customerID string, paymentMethodID string) (*gomultistripe.PaymentMethod, error) {
 	params := &stripe.PaymentMethodAttachParams{
 		Customer: stripe.String(customerID),
 	}
@@ -152,12 +157,12 @@ func (h *Handler) AttachPaymentMethod(ctx context.Context, customerID string, pa
 		CreatedAt: time.Unix(pm.Created, 0)}, nil
 }
 
-func (h *Handler) DetachPaymentMethod(ctx context.Context, paymentMethodID string) error {
+func (h *HandlerV75) DetachPaymentMethod(ctx context.Context, paymentMethodID string) error {
 	_, err := paymentmethod.Detach(paymentMethodID, nil)
 	return err
 }
 
-func (h *Handler) CreatePaymentIntent(ctx context.Context, params *gomultistripe.PaymentIntent) (*gomultistripe.PaymentIntent, error) {
+func (h *HandlerV75) CreatePaymentIntent(ctx context.Context, params *gomultistripe.PaymentIntent) (*gomultistripe.PaymentIntent, error) {
 	stripeParams := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(params.Amount),
 		Currency:      stripe.String(params.Currency),
@@ -194,7 +199,7 @@ func (h *Handler) CreatePaymentIntent(ctx context.Context, params *gomultistripe
 	}, nil
 }
 
-func (h *Handler) RetrievePaymentIntent(ctx context.Context, paymentIntentID string) (*gomultistripe.PaymentIntent, error) {
+func (h *HandlerV75) RetrievePaymentIntent(ctx context.Context, paymentIntentID string) (*gomultistripe.PaymentIntent, error) {
 	pi, err := paymentintent.Get(paymentIntentID, nil)
 	if err != nil {
 		return nil, err
@@ -224,7 +229,7 @@ func (h *Handler) RetrievePaymentIntent(ctx context.Context, paymentIntentID str
 	}, nil
 }
 
-func (h *Handler) CreateSubscription(ctx context.Context, customerID string, priceID string) (*gomultistripe.Subscription, error) {
+func (h *HandlerV75) CreateSubscription(ctx context.Context, customerID string, priceID string) (*gomultistripe.Subscription, error) {
 	params := &stripe.SubscriptionParams{
 		Customer: stripe.String(customerID),
 		Items: []*stripe.SubscriptionItemsParams{
@@ -259,7 +264,7 @@ func (h *Handler) CreateSubscription(ctx context.Context, customerID string, pri
 	}, nil
 }
 
-func (h *Handler) ListSubscriptions(ctx context.Context, customerID string) ([]*gomultistripe.Subscription, error) {
+func (h *HandlerV75) ListSubscriptions(ctx context.Context, customerID string) ([]*gomultistripe.Subscription, error) {
 	params := &stripe.SubscriptionListParams{Customer: stripe.String(customerID)}
 	iter := subscription.List(params)
 	var subs []*gomultistripe.Subscription
@@ -294,7 +299,7 @@ func (h *Handler) ListSubscriptions(ctx context.Context, customerID string) ([]*
 	return subs, nil
 }
 
-func (h *Handler) UpdateSubscription(ctx context.Context, subscriptionID string, cancelAtPeriodEnd bool, newPriceID string) (*gomultistripe.Subscription, error) {
+func (h *HandlerV75) UpdateSubscription(ctx context.Context, subscriptionID string, cancelAtPeriodEnd bool, newPriceID string) (*gomultistripe.Subscription, error) {
 	params := &stripe.SubscriptionParams{
 		CancelAtPeriodEnd: stripe.Bool(cancelAtPeriodEnd),
 	}
@@ -331,7 +336,7 @@ func (h *Handler) UpdateSubscription(ctx context.Context, subscriptionID string,
 	}, nil
 }
 
-func (h *Handler) CancelSubscription(ctx context.Context, subscriptionID string, atPeriodEnd bool) (*gomultistripe.Subscription, error) {
+func (h *HandlerV75) CancelSubscription(ctx context.Context, subscriptionID string, atPeriodEnd bool) (*gomultistripe.Subscription, error) {
 	params := &stripe.SubscriptionCancelParams{
 		InvoiceNow: stripe.Bool(!atPeriodEnd),
 		Prorate:    stripe.Bool(!atPeriodEnd),
@@ -367,5 +372,5 @@ func (h *Handler) CancelSubscription(ctx context.Context, subscriptionID string,
 var ErrInvalidParams = errors.New("invalid params type for this handler version")
 
 func init() {
-	gomultistripe.RegisterHandler(&Handler{})
+	gomultistripe.RegisterHandler(NewHandler())
 }

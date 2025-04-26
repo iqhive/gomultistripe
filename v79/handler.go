@@ -15,9 +15,16 @@ import (
 )
 
 // HandlerV79 implements the Handler interface for Stripe API v79.
-type HandlerV79 struct{}
+type HandlerV79 struct {
+}
+
+func NewHandler() *HandlerV79 { return &HandlerV79{} }
 
 func (h *HandlerV79) Version() string { return "v79" }
+
+func (h *HandlerV79) SetSecretKey(secretKey string) {
+	stripe.Key = secretKey
+}
 
 func (h *HandlerV79) CreateCustomer(ctx context.Context, params *gomultistripe.Customer) (*gomultistripe.Customer, error) {
 	stripeParams := &stripe.CustomerParams{
@@ -337,5 +344,5 @@ func (h *HandlerV79) CancelSubscription(ctx context.Context, subscriptionID stri
 var ErrInvalidParams = errors.New("invalid params type for this handler version")
 
 func init() {
-	gomultistripe.RegisterHandler(&HandlerV79{})
+	gomultistripe.RegisterHandler(NewHandler())
 }

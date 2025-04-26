@@ -14,9 +14,16 @@ import (
 )
 
 // HandlerV82 implements the Handler interface for Stripe API v82.
-type HandlerV82 struct{}
+type HandlerV82 struct {
+}
+
+func NewHandler() *HandlerV82 { return &HandlerV82{} }
 
 func (h *HandlerV82) Version() string { return "v82" }
+
+func (h *HandlerV82) SetSecretKey(secretKey string) {
+	stripe.Key = secretKey
+}
 
 func (h *HandlerV82) CreateCustomer(ctx context.Context, params *gomultistripe.Customer) (*gomultistripe.Customer, error) {
 	stripeParams := &stripe.CustomerParams{
@@ -362,5 +369,5 @@ func (h *HandlerV82) CancelSubscription(ctx context.Context, subscriptionID stri
 }
 
 func init() {
-	gomultistripe.RegisterHandler(&HandlerV82{})
+	gomultistripe.RegisterHandler(NewHandler())
 }

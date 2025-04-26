@@ -7,15 +7,17 @@ package gomultistripe
 
 import (
 	"context"
+	"time"
 )
 
 // Customer represents a Stripe customer in a version-agnostic way.
 type Customer struct {
-	ID       string
-	Name     string
-	Email    string
-	Phone    string
-	Postcode string
+	ID        string
+	Name      string
+	Email     string
+	Phone     string
+	Postcode  string
+	CreatedAt time.Time
 }
 
 // PaymentMethod represents a Stripe payment method in a version-agnostic way.
@@ -27,6 +29,7 @@ type PaymentMethod struct {
 	ExpMonth  uint
 	ExpYear   uint
 	IsDefault bool
+	CreatedAt time.Time
 }
 
 // PaymentIntent represents a Stripe payment intent in a version-agnostic way.
@@ -38,6 +41,7 @@ type PaymentIntent struct {
 	ClientSecret  string
 	CustomerID    string
 	PaymentMethod string
+	CreatedAt     time.Time
 }
 
 // Subscription represents a Stripe subscription in a version-agnostic way.
@@ -49,7 +53,7 @@ type Subscription struct {
 	CurrentPeriodEnd  int64
 	CancelAtPeriodEnd bool
 	CanceledAt        int64
-	Created           int64
+	CreatedAt         time.Time
 }
 
 // CallbackEventType represents the type of Stripe event received.
@@ -75,6 +79,12 @@ const (
 	EventInvoicePaymentFailed    CallbackEventType = "invoice.payment_failed"
 	EventInvoiceCreated          CallbackEventType = "invoice.created"
 	EventInvoiceUpcoming         CallbackEventType = "invoice.upcoming"
+
+	// Refund events
+	EventRefundCreated  CallbackEventType = "refund.created"
+	EventRefundUpdated  CallbackEventType = "refund.updated"
+	EventRefundFailed   CallbackEventType = "refund.failed"
+	EventChargeRefunded CallbackEventType = "charge.refunded"
 )
 
 // CallbackEvent is a version-agnostic representation of a Stripe webhook event.
@@ -113,11 +123,19 @@ type CallbackEvent struct {
 	CurrentPeriodEnd  int64
 	CancelAtPeriodEnd bool
 	CanceledAt        int64
-	Created           int64
+	CreatedAt         time.Time
 
 	// Invoice fields
 	InvoiceID    string
 	InvoiceLines []InvoiceLine
+
+	// Refund fields
+	RefundID     string
+	RefundAmount int64
+	RefundReason string
+	RefundStatus string
+	ChargeID     string
+	Currency     string
 }
 
 type InvoiceLine struct {

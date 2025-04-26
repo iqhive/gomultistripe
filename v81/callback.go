@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"sync"
+	"time"
 
 	gomultistripe "github.com/iqhive/gomultistripe"
 	stripe "github.com/stripe/stripe-go/v81"
@@ -126,7 +127,7 @@ func (h *CallbackHandlerV81) HandleWebhook(payload []byte, sigHeader string) err
 			CurrentPeriodEnd:  sub.CancelAt,
 			CancelAtPeriodEnd: sub.CancelAtPeriodEnd,
 			CanceledAt:        sub.CanceledAt,
-			Created:           sub.Created,
+			CreatedAt:         time.Unix(sub.Created, 0),
 		}
 		for k, v := range sub.Metadata {
 			cbEvent.Metadata[k] = v
@@ -148,7 +149,7 @@ func (h *CallbackHandlerV81) HandleWebhook(payload []byte, sigHeader string) err
 			CustomerID: inv.Customer.ID,
 			Amount:     inv.AmountDue,
 			Status:     string(inv.Status),
-			Created:    inv.Created,
+			CreatedAt:  time.Unix(inv.Created, 0),
 		}
 		for k, v := range inv.Metadata {
 			cbEvent.Metadata[k] = v
@@ -167,6 +168,32 @@ func (h *CallbackHandlerV81) HandleWebhook(payload []byte, sigHeader string) err
 				cbEvent.InvoiceLines = append(cbEvent.InvoiceLines, gmline)
 			}
 		}
+		h.events <- cbEvent
+	case stripe.EventTypeRefundCreated,
+		stripe.EventTypeRefundUpdated,
+		stripe.EventTypeRefundFailed,
+		stripe.EventTypeChargeRefunded:
+		var refund stripe.Refund
+		if err := json.Unmarshal(event.Data.Raw, &refund); err != nil {
+			return err
+		}
+
+		cbEvent := gomultistripe.CallbackEvent{
+			Type:         gomultistripe.CallbackEventType(event.Type),
+			Metadata:     make(map[string]string),
+			RefundID:     refund.ID,
+			RefundAmount: refund.Amount,
+			RefundReason: string(refund.Reason),
+			RefundStatus: string(refund.Status),
+			ChargeID:     refund.Charge.ID,
+			Currency:     string(refund.Currency),
+			CreatedAt:    time.Unix(refund.Created, 0),
+		}
+
+		for k, v := range refund.Metadata {
+			cbEvent.Metadata[k] = v
+		}
+
 		h.events <- cbEvent
 	}
 	return nil

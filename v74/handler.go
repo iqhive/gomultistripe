@@ -4,6 +4,7 @@ package v74
 import (
 	"context"
 	"errors"
+	"time"
 
 	gomultistripe "github.com/iqhive/gomultistripe"
 	"github.com/stripe/stripe-go/v74"
@@ -34,13 +35,20 @@ func (h *Handler) CreateCustomer(ctx context.Context, params *gomultistripe.Cust
 	if err != nil {
 		return nil, err
 	}
-	return &gomultistripe.Customer{ID: cust.ID, Name: cust.Name, Email: cust.Email, Phone: cust.Phone, Postcode: func() string {
-		if cust.Address != nil {
-			return cust.Address.PostalCode
-		} else {
-			return ""
-		}
-	}()}, nil
+	return &gomultistripe.Customer{
+		ID:    cust.ID,
+		Name:  cust.Name,
+		Email: cust.Email,
+		Phone: cust.Phone,
+		Postcode: func() string {
+			if cust.Address != nil {
+				return cust.Address.PostalCode
+			} else {
+				return ""
+			}
+		}(),
+		CreatedAt: time.Unix(cust.Created, 0),
+	}, nil
 }
 
 // UpdateCustomer implements the Handler interface for v74.
@@ -57,13 +65,20 @@ func (h *Handler) UpdateCustomer(ctx context.Context, customerID string, params 
 	if err != nil {
 		return nil, err
 	}
-	return &gomultistripe.Customer{ID: cust.ID, Name: cust.Name, Email: cust.Email, Phone: cust.Phone, Postcode: func() string {
-		if cust.Address != nil {
-			return cust.Address.PostalCode
-		} else {
-			return ""
-		}
-	}()}, nil
+	return &gomultistripe.Customer{
+		ID:    cust.ID,
+		Name:  cust.Name,
+		Email: cust.Email,
+		Phone: cust.Phone,
+		Postcode: func() string {
+			if cust.Address != nil {
+				return cust.Address.PostalCode
+			} else {
+				return ""
+			}
+		}(),
+		CreatedAt: time.Unix(cust.Created, 0),
+	}, nil
 }
 
 // GetPaymentMethods implements the Handler interface for v74.
@@ -77,12 +92,13 @@ func (h *Handler) GetPaymentMethods(ctx context.Context, customerID string) ([]*
 	for iter.Next() {
 		pm := iter.PaymentMethod()
 		methods = append(methods, &gomultistripe.PaymentMethod{
-			ID:       pm.ID,
-			Type:     string(pm.Type),
-			Last4:    pm.Card.Last4,
-			Brand:    string(pm.Card.Brand),
-			ExpMonth: uint(pm.Card.ExpMonth),
-			ExpYear:  uint(pm.Card.ExpYear),
+			ID:        pm.ID,
+			Type:      string(pm.Type),
+			Last4:     pm.Card.Last4,
+			Brand:     string(pm.Card.Brand),
+			ExpMonth:  uint(pm.Card.ExpMonth),
+			ExpYear:   uint(pm.Card.ExpYear),
+			CreatedAt: time.Unix(pm.Created, 0),
 		})
 	}
 	if err := iter.Err(); err != nil {
@@ -101,13 +117,13 @@ func (h *Handler) AttachPaymentMethod(ctx context.Context, customerID string, pa
 		return nil, err
 	}
 	return &gomultistripe.PaymentMethod{
-		ID:       pm.ID,
-		Type:     string(pm.Type),
-		Last4:    pm.Card.Last4,
-		Brand:    string(pm.Card.Brand),
-		ExpMonth: uint(pm.Card.ExpMonth),
-		ExpYear:  uint(pm.Card.ExpYear),
-	}, nil
+		ID:        pm.ID,
+		Type:      string(pm.Type),
+		Last4:     pm.Card.Last4,
+		Brand:     string(pm.Card.Brand),
+		ExpMonth:  uint(pm.Card.ExpMonth),
+		ExpYear:   uint(pm.Card.ExpYear),
+		CreatedAt: time.Unix(pm.Created, 0)}, nil
 }
 
 // DetachPaymentMethod detaches a payment method from a customer.
@@ -136,6 +152,7 @@ func (h *Handler) CreatePaymentIntent(ctx context.Context, params *gomultistripe
 		Status:       string(pi.Status),
 		ClientSecret: pi.ClientSecret,
 		CustomerID:   pi.Customer.ID,
+		CreatedAt:    time.Unix(pi.Created, 0),
 		PaymentMethod: func() string {
 			if pi.PaymentMethod != nil {
 				return pi.PaymentMethod.ID
@@ -194,7 +211,7 @@ func (h *Handler) CreateSubscription(ctx context.Context, customerID string, pri
 		CurrentPeriodEnd:  s.CancelAt,
 		CancelAtPeriodEnd: s.CancelAtPeriodEnd,
 		CanceledAt:        s.CanceledAt,
-		Created:           s.Created,
+		CreatedAt:         time.Unix(s.Created, 0),
 	}, nil
 }
 
@@ -218,7 +235,7 @@ func (h *Handler) ListSubscriptions(ctx context.Context, customerID string) ([]*
 			CurrentPeriodEnd:  s.CancelAt,
 			CancelAtPeriodEnd: s.CancelAtPeriodEnd,
 			CanceledAt:        s.CanceledAt,
-			Created:           s.Created,
+			CreatedAt:         time.Unix(s.Created, 0),
 		})
 	}
 	if err := iter.Err(); err != nil {
@@ -254,7 +271,7 @@ func (h *Handler) UpdateSubscription(ctx context.Context, subscriptionID string,
 		CurrentPeriodEnd:  s.CancelAt,
 		CancelAtPeriodEnd: s.CancelAtPeriodEnd,
 		CanceledAt:        s.CanceledAt,
-		Created:           s.Created,
+		CreatedAt:         time.Unix(s.Created, 0),
 	}, nil
 }
 
@@ -281,7 +298,7 @@ func (h *Handler) CancelSubscription(ctx context.Context, subscriptionID string,
 		CurrentPeriodEnd:  s.CancelAt,
 		CancelAtPeriodEnd: s.CancelAtPeriodEnd,
 		CanceledAt:        s.CanceledAt,
-		Created:           s.Created,
+		CreatedAt:         time.Unix(s.Created, 0),
 	}, nil
 }
 

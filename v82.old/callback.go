@@ -181,5 +181,6 @@ func (h *HandlerV82) HandleWebhook(payload []byte, sigHeader string) (*gomultist
 
 		return &cbEvent, nil
 	}
+
 	return nil, fmt.Errorf("unknown event type: %s", event.Type)
 }

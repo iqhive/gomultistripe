@@ -22,6 +22,30 @@ We will be setting up automation to automatically add new versions to the packag
 
 Each version has its own handler implementation and can be selected at runtime.
 
+## Stripe Version Management Tool
+
+We provide a tool to help manage Stripe Go SDK versions. The `update_stripe_versions` tool:
+
+1. Updates the 5 most recent existing versions to their latest minor and patch releases
+2. Automatically adds new major versions by copying the most recent version's files and updating imports
+3. Runs tests to verify changes work correctly
+4. Commits changes to git (when not in dry-run mode)
+
+### Using the Tool
+
+```bash
+# Navigate to the tool directory
+cd cmd/update_stripe_versions
+
+# Build and run the tool (makes actual changes)
+make run
+
+# Preview changes without making them (dry-run mode)
+make dry-run
+```
+
+See the [tool's README](cmd/update_stripe_versions/README.md) for more details.
+
 ## Overview
 
 - **Versioned Handlers:** Each supported Stripe API version has its own handler implementation (e.g., `handler_v80.go` for v80, `handler_v81.go` for v81, `handler_v82.go` for v82).

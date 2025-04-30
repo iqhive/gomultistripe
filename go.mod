@@ -10,5 +10,8 @@ require (
 	github.com/stripe/stripe-go/v79 v79.12.0
 	github.com/stripe/stripe-go/v80 v80.2.1
 	github.com/stripe/stripe-go/v81 v81.4.0
-	github.com/stripe/stripe-go/v82 v82.0.0
 )
+
+require github.com/stripe/stripe-go/v82 v82.0.0
+
+require github.com/iqhive/cfggo v1.0.21
